@@ -1,4 +1,4 @@
-# Welcome to My Cpp Redis Server
+# Cpp Redis Server
 
 
 ## Task
