@@ -1,4 +1,4 @@
-# Benchmarking Client & Performance Analysis — Adaptive Cache Redis
+#Benchmarking Client & Performance Analysis — Adaptive Cache Redis
 
 This module benchmarks and analyzes the Redis-compatible in-memory caching server under real or synthetic stock quote workloads.
 
