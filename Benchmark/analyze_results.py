@@ -2,7 +2,7 @@
 """Pandas/Matplotlib analysis for benchmark CSV output. Install requirements.txt first."""
 import argparse, os, sys, json
 import pandas as pd
-
+#Script handles parseing csv logs and output visual comparision charts
 def main():
     p=argparse.ArgumentParser(description="Analyze benchmark CSV and create charts/report")
     p.add_argument("--input",required=True,help="benchmark_*.csv file, or a directory containing benchmark CSV files")
