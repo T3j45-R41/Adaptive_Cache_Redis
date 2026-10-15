@@ -9,5 +9,4 @@ public:
     // Process a command from a client and return a RESP-formatted response.
     std::string processCommand(const std::string& commandLine);
 };
-
 #endif
