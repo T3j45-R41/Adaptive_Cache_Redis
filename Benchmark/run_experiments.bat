@@ -1,7 +1,7 @@
 @echo off
 REM Ensure the Redis server is running in a separate terminal:
 REM   cd ..\Redis-Server
-REM   my_redis_server.exe 6379 LRU 25
+REM   my_redis_server.exe 6379 LRU 25 
 
 echo ========================================================
 echo Running Eviction Policy Comparison on Stock Market Data
