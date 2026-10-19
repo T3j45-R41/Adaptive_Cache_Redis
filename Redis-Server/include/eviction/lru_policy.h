@@ -1,9 +1,13 @@
 #pragma once
 #include "eviction_policy.h"
+#include <cstdint>
 #include <list>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
+// Classic LRU: a doubly linked list ordered most-recently-used at the front,
+// plus a hash map from key to its list iterator so the splice is O(1).
 class LRUPolicy final : public EvictionPolicy {
 public:
     void onInsert(const std::string& key) override;
@@ -11,6 +15,7 @@ public:
     void onRemove(const std::string& key) override;
     std::string selectVictim() const override;
     void syncKeys(const std::vector<std::string>& keys) override;
+    std::string name() const override { return "LRU"; }
 
 private:
     std::list<std::string> order_; // front = MRU, back = LRU
