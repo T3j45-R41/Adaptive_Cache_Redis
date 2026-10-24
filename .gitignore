@@ -1,0 +1,31 @@
+# Build output
+build/
+*.o
+*.d
+*.a
+*.exe
+my_redis_server
+
+# Server runtime artifacts
+dump.my_rdb
+dump.my_rdb.tmp
+*.my_rdb
+*.rdb
+
+# Benchmark and analysis output
+results/
+analysis_output/
+Benchmark/results/
+Benchmark/analysis_output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store

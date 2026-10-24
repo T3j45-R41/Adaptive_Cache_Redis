@@ -58,45 +58,44 @@ This document outlines the core **Operating System (OS)** principles and low-lev
 * **Code Reference:**
   ```cpp
   // Inside RedisServer::run()
-  int client_socket = accept(server_socket, nullptr, nullptr);
-  threads.emplace_back([client_socket, &cmdHandler](){
-      char buffer[1024];
-      while (true) {
-          int bytes = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-          if (bytes <= 0) break;
-          std::string request(buffer, bytes);
-          std::string response = cmdHandler.processCommand(request);
-          send(client_socket, response.c_str(), response.size(), 0);
-      }
-      close(client_socket);
-  });
+  const int client_socket = accept(server_socket, nullptr, nullptr);
+  std::thread(serveClient, clientSocket, std::cref(running)).detach();
   ```
 * **OS Mechanics:** When `accept()` returns a new file descriptor, the main thread creates a new kernel-scheduled thread (`std::thread`). The OS scheduler time-slices these threads across available CPU cores.
 
 ### B. Background Daemon / Detached Worker Thread
 * **Concept:** Independent background task execution that does not block the primary application thread.
-* **Implementation:** [`src/main.cpp`](src/main.cpp)
+* **Implementation:** [`src/RedisServer.cpp`](src/RedisServer.cpp)
 * **Code Reference:**
   ```cpp
-  std::thread persistanceThread([](){
-      while (true) {
-          std::this_thread::sleep_for(std::chrono::seconds(300));
-          RedisDatabase::getInstance().dump("dump.my_rdb");
+  persistThread = std::thread([this]() {
+      constexpr auto slice = std::chrono::milliseconds(200);
+      const auto interval = std::chrono::seconds(persistIntervalSeconds);
+      auto elapsed = std::chrono::steady_clock::duration::zero();
+
+      while (persistRunning.load()) {
+          std::this_thread::sleep_for(slice);
+          elapsed += slice;
+          if (elapsed < interval) continue;
+          elapsed = std::chrono::steady_clock::duration::zero();
+          if (!persistRunning.load()) break;
+          persistNow();
       }
   });
-  persistanceThread.detach();
   ```
-* **OS Mechanics:** Calling `.detach()` separates the thread of execution from the thread object, allowing it to execute as an independent daemon managed directly by the OS runtime until the process exits.
+* **OS Mechanics:** The thread sleeps in 200 ms slices rather than one long sleep, so the shutdown flag is noticed promptly instead of after a full interval. It is a named `std::thread` member rather than a detached local, so `stopPersistence()` can join it before the process exits. The previous detached loop could never be stopped and kept dumping during teardown.
 
 ### C. Thread Joining & Lifecycle Cleanup
 * **Concept:** Process teardown synchronization to ensure worker threads conclude cleanly without orphaned resources.
 * **Implementation:** [`src/RedisServer.cpp`](src/RedisServer.cpp)
 * **Code Reference:**
   ```cpp
-  for (auto& t : threads) {
-      if (t.joinable()) t.join();
+  void RedisServer::stopPersistence() {
+      persistRunning.store(false);
+      if (persistThread.joinable()) persistThread.join();
   }
   ```
+* **Trade-off:** Connection handlers are detached rather than joined, so the server does not accumulate one `std::thread` object per connection ever made (the benchmark client opens a fresh connection per command). The cost is that in-flight handlers are not drained at exit; `run()` allows a short grace period before tearing down. Client handlers are free functions taking the running flag by reference, so a detached handler can never dereference a destroyed `RedisServer`.
 
 ---
 
@@ -111,7 +110,11 @@ This document outlines the core **Operating System (OS)** principles and low-lev
 
   void RedisDatabase::set(const std::string& key, const std::string& value) {
       std::lock_guard<std::mutex> lock(db_mutex); // Critical Section
-      kv_store[key] = value;
+      Value entry;
+      entry.type = Value::Type::String;
+      entry.str = value;
+      store[key] = std::move(entry);
+      registerInsertLocked(key, key.size() + value.size(), isNew);
   }
   ```
 * **OS Mechanics:** If Thread B attempts to lock `db_mutex` while Thread A holds it, Thread B transitions from `RUNNING` to `BLOCKED/WAITING` in the OS scheduler queue until Thread A releases the lock.
@@ -139,7 +142,7 @@ Implemented in [`src/RedisServer.cpp`](src/RedisServer.cpp) using the standard P
 | `socket(AF_INET, SOCK_STREAM, 0)` | Allocates a stream socket file descriptor backed by kernel TCP buffers. |
 | `setsockopt(..., SO_REUSEADDR, ...)` | Configures socket flags to bypass the OS kernel `TIME_WAIT` state, allowing immediate port reuse on server restarts. |
 | `bind()` | Maps the socket file descriptor to a network interface (`INADDR_ANY`) and port (`6379`). |
-| `listen(server_socket, 10)` | Transitions socket to passive listening mode and sets the kernel backlog queue size (10 connections). |
+| `listen(server_socket, 128)` | Transitions socket to passive listening mode and sets the kernel backlog queue size. |
 | `accept()` | Blocks until the 3-way TCP handshake completes, returning a new dedicated connection descriptor. |
 | `recv()` / `send()` | Reads from and writes to kernel TCP socket buffers across user-space and kernel-space boundaries. |
 | `close()` | Decrements kernel socket file descriptor refcount, triggering TCP teardown (`FIN`/`ACK`). |
@@ -153,31 +156,29 @@ Implemented in [`src/RedisServer.cpp`](src/RedisServer.cpp) using the standard P
 * **Implementation:** [`src/RedisServer.cpp`](src/RedisServer.cpp)
 * **Code Reference:**
   ```cpp
-  void signalHandler(int signum) {
-      if (globalServer) {
-          globalServer->shutdown();
-      }
-      exit(signum);
+  void signalHandler(int) {
+      if (!globalServer) return;
+      globalServer->requestShutdown();
   }
 
-  void RedisServer::setupSignalHandler() {
-      signal(SIGINT, signalHandler);
+  void RedisServer::requestShutdown() {
+      running.store(false);
+      const int fd = listen_fd.load();
+      if (fd != -1) ::shutdown(fd, SHUT_RDWR);  // unblocks accept()
   }
   ```
-* **OS Mechanics:** When the terminal sends `SIGINT`, the kernel halts the current CPU instruction sequence and redirects the thread to `signalHandler()`.
+* **OS Mechanics:** When the terminal sends `SIGINT`/`SIGTERM`, the kernel halts the current instruction sequence and redirects the thread to `signalHandler()`. The handler is async-signal-safe: it performs no allocation, no iostream writes and no `exit()`. The earlier version called `std::cout` and `exit()` from the handler, both of which are undefined in a signal context and could deadlock on the stdio lock.
 
 ### B. Graceful Shutdown & Persistence
 * **Concept:** Orderly application termination that saves dirty state to disk and closes network descriptors before returning control to the OS.
 * **Code Reference:**
   ```cpp
-  void RedisServer::shutdown() {
-      running = false;
-      if (server_socket != -1) {
-          RedisDatabase::getInstance().dump("dump.my_rdb"); // Flush to disk
-          close(server_socket);                             // Release socket FD
-      }
-  }
+  // requestShutdown() only flags and unblocks accept(); run() then finishes up:
+  stopPersistence();                       // join the snapshot thread
+  close(server_socket);                    // release the listening FD
+  persistNow();                            // one final snapshot
   ```
+* **Note:** the snapshot is written exactly once. The previous code dumped from both the signal handler and the end of `run()`, so every `Ctrl+C` wrote the file twice.
 
 ---
 
@@ -219,17 +220,18 @@ Implemented in [`src/RedisServer.cpp`](src/RedisServer.cpp) using the standard P
 * **Concept:** Reducing OS scheduling and interrupt overhead by deferring expiration cleanups until keys are accessed.
 * **Code Reference:**
   ```cpp
-  void RedisDatabase::purgeExpired() {
-      auto now = std::chrono::steady_clock::now();
-      for (auto it = expiry_map.begin(); it != expiry_map.end(); ) {
-          if (now > it->second) {
-              kv_store.erase(it->first);
-              list_store.erase(it->first);
-              hash_store.erase(it->first);
-              it = expiry_map.erase(it);
-          } else {
-              ++it;
-          }
+  void RedisDatabase::purgeExpiredLocked() {
+      if (expiry_map.empty()) return;
+      const auto now = Clock::now();
+
+      // Collect first, then remove: removeKeyLocked() erases from expiry_map
+      // itself, so erasing during the walk would leave a dangling iterator.
+      std::vector<std::string> expired;
+      for (const auto& entry : expiry_map) {
+          if (now > entry.second) expired.push_back(entry.first);
+      }
+      for (const auto& key : expired) {
+          removeKeyLocked(key, RemovalReason::Expired);
       }
   }
   ```
@@ -238,7 +240,7 @@ Implemented in [`src/RedisServer.cpp`](src/RedisServer.cpp) using the standard P
 * **Concept:** Voluntarily relinquishing CPU time slices.
 * **Code Reference:**
   ```cpp
-  std::this_thread::sleep_for(std::chrono::seconds(300));
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
   ```
 * **OS Mechanics:** Transitions the thread from the OS `RUNNING` queue to `SLEEPING/WAITING`, consuming 0% CPU until the kernel hardware timer interrupt fires.
 
@@ -250,6 +252,25 @@ Implemented in [`src/RedisServer.cpp`](src/RedisServer.cpp) using the standard P
 * **Implementation:** [`src/RedisCommandHandler.cpp`](src/RedisCommandHandler.cpp)
 * **Code Reference:**
   ```cpp
-  std::vector<std::string> parseRespCommand(const std::string &input);
+  ParseResult parseRespCommand(const std::string& buffer, std::size_t& consumed,
+                               std::vector<std::string>& tokens);
   ```
-* **OS Mechanics:** TCP is a continuous byte stream with no packet boundaries. The application-level parser delimits messages by parsing CRLF (`\r\n`) terminators and payload length prefixes (`$<len>`), reconstructing discrete commands from the 1024-byte read buffer.
+  ```cpp
+  // Inside serveClient(): accumulate, then drain every complete command.
+  pending.append(chunk.data(), static_cast<std::size_t>(bytes));
+
+  std::size_t offset = 0;
+  while (true) {
+      std::size_t consumed = 0;
+      bool closeAfter = false;
+      const std::string reply =
+          handler.processCommand(pending.substr(offset), consumed, closeAfter);
+      offset += consumed;
+      if (!reply.empty() && !sendAll(clientSocket, reply)) break;
+      if (closeAfter) break;
+      if (consumed == 0) break;   // incomplete: wait for more bytes
+  }
+  pending.erase(0, offset);
+  ```
+* **OS Mechanics:** TCP is a continuous byte stream with no packet boundaries. The parser delimits messages using CRLF terminators and `$<len>` length prefixes, and reports how many bytes it consumed so the caller can keep the remainder for the next command.
+* **Why the buffer matters:** the previous design did a single `recv()` into a fixed `char[1024]` and treated the whole chunk as one command. A command split across two TCP segments was silently mangled, and anything over ~1000 bytes was truncated. Each handler now owns a `std::string` that grows to hold a partial command, which also makes pipelined commands work, with a 16 MB ceiling so a client that never completes a line cannot exhaust server memory.

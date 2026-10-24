@@ -4,13 +4,13 @@
 RandomPolicy::RandomPolicy() : rng_(std::random_device{}()) {}
 
 void RandomPolicy::onInsert(const std::string& key) {
-    if (std::find(keys_.begin(), keys_.end(), key) == keys_.end())
-        keys_.push_back(key);
+    if (members_.insert(key).second) keys_.push_back(key);
 }
 
-void RandomPolicy::onAccess(const std::string&) {}
+void RandomPolicy::onAccess(const std::string& /*key*/) {}
 
 void RandomPolicy::onRemove(const std::string& key) {
+    members_.erase(key);
     keys_.erase(std::remove(keys_.begin(), keys_.end(), key), keys_.end());
 }
 
@@ -22,4 +22,6 @@ std::string RandomPolicy::selectVictim() const {
 
 void RandomPolicy::syncKeys(const std::vector<std::string>& keys) {
     keys_ = keys;
+    members_.clear();
+    members_.insert(keys.begin(), keys.end());
 }

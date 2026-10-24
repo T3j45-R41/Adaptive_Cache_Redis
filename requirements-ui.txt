@@ -1,3 +1,8 @@
-streamlit>=1.32.0
+# Control panel and dashboard for the Adaptive_Cache_Redis server.
+#
+# streamlit >= 1.46 is required: the app uses st.fragment(run_every=...) for the
+# live dashboard and the width= parameter, which replaced the deprecated
+# use_container_width. Developed and verified against streamlit 1.66.
+streamlit>=1.46
 yfinance>=0.2.40
 pandas>=2.0.0

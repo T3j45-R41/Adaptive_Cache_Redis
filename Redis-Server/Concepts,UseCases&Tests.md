@@ -18,11 +18,17 @@
 
 ### Classes
 
-- RedisServer class 
+- RedisServer class
 
 - RedisDatabase class
 
 - RedisCommandHandler class
+
+- EvictionEngine class (policy factory, capacity limit, cache counters)
+
+- EvictionPolicy interface, with LRU, LFU, FIFO, Random and Adaptive implementations
+
+- CacheEntry (per-key frame descriptor) and EvictionMetrics (counters)
 
 ---
 
@@ -193,5 +199,53 @@ redis-cli -p 6379
 | **HVALS**         | `HVALS user:1`                                                                                           | `1) "Alice"`<br>`2) "a@x.com"`                                 |
 | **HGETALL**       | `HGETALL user:1`                                                                                         | `1) "name"`<br>`2) "Alice"`<br>`3) "email"`<br>`4) "a@x.com"`  |
 | **HMSET**         | `HMSET user:2 name Bob age 25 city Paris`<br>`HGETALL user:2`                                           | `OK`<br>`1) "name"`<br>`2) "Bob"`<br>`3) "age"`<br>`4) "25"`<br>`5) "city"`<br>`6) "Paris"` |
+
+---
+
+---
+
+### 7. Expiry and Key Metadata
+
+| Command   | Example                        | Expected Reply                |
+| --------- | ------------------------------ | ----------------------------- |
+| **EXISTS**| `EXISTS a`<br>`EXISTS nope`     | `(integer) 1`<br>`(integer) 0` |
+| **EXPIRE**| `EXPIRE s 100`                 | `(integer) 1`                 |
+| **TTL**   | `TTL s`<br>`TTL nosuchkey`      | remaining seconds<br>`(integer) -2` |
+| **PERSIST**| `PERSIST s`                   | `(integer) 1`                 |
+
+**TTL** returns `-2` when the key does not exist and `-1` when it exists with
+no expiry set.
+
+---
+
+### 8. Cache Administration
+
+| Command              | Example                                  | Expected Reply          |
+| -------------------- | ---------------------------------------- | ----------------------- |
+| **DBSIZE**           | `DBSIZE`                                 | `(integer) 4`           |
+| **INFO**             | `INFO`                                   | bulk string of `key:value` lines |
+| **MEMORY USAGE**     | `MEMORY USAGE foo`                       | `(integer) 12`          |
+| **EVICTION**         | `EVICTION`                               | `LRU`                   |
+| **EVICTION LFU**     | `EVICTION LFU`                           | `OK`                    |
+| **MAXKEYS**          | `MAXKEYS`                                | `(integer) 25`          |
+| **MAXKEYS 1000**     | `MAXKEYS 1000`                           | `OK`                    |
+| **CONFIG SET POLICY**| `CONFIG SET POLICY ADAPTIVE`             | `OK`                    |
+| **CONFIG SET MAXKEYS**| `CONFIG SET MAXKEYS 25`                 | `OK`                    |
+| **CONFIG GET POLICY**| `CONFIG GET POLICY`                      | `"ADAPTIVE"`            |
+| **CONFIG RESETSTAT** | `CONFIG RESETSTAT`                       | `OK`                    |
+
+`EVICTION` and `MAXKEYS` are shorthands for the `CONFIG SET` forms, kept because
+the Streamlit UI uses them.
+
+Valid policy names are `LRU`, `LFU`, `FIFO`, `RANDOM`, `ADAPTIVE`.
+`CACHEUS` is accepted as a legacy alias for `ADAPTIVE`. `MAXKEYS 0` removes the
+capacity limit entirely. Lowering the limit evicts immediately until the cache
+fits.
+
+`INFO` reports, among others: `active_policy`, `max_keys`, `keys_stored`,
+`bytes_used`, `total_hits`, `total_misses`, `hit_rate_percent`,
+`total_evictions`, `write_backs`, `lru_selections` and friends. For the adaptive
+policy it also includes an `adaptive_detail` line with the current expert
+weights and shadow losses.
 
 ---
