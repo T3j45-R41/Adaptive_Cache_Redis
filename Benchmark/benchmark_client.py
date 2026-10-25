@@ -38,7 +38,10 @@ def command(host: str, port: int, text: str, timeout: float) -> tuple[bool, str,
                         if len(data) >= first + 2 + n + 2: break
                     else: break
             reply = b"".join(chunks).decode("utf-8", errors="replace")
-            return bool(reply) and not reply.startswith(("-Error", "-ERR")), reply, (time.perf_counter()-start)*1000
+            # Any RESP error starts with '-', whatever its error code. Matching
+            # only "-Error"/"-ERR" would silently count a WRONGTYPE or
+            # NOSUCHKEY reply as a successful operation.
+            return bool(reply) and not reply.startswith("-"), reply, (time.perf_counter()-start)*1000
     except (OSError, socket.timeout) as exc:
         return False, f"{type(exc).__name__}: {exc}", (time.perf_counter()-start)*1000
 

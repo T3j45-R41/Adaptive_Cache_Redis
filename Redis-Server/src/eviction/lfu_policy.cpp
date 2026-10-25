@@ -2,13 +2,19 @@
 #include <limits>
 
 void LFUPolicy::onInsert(const std::string& key) {
+    // A re-insertion of a key that is already tracked must not reset its
+    // counter -- that would let a hot key be demoted by a redundant write.
+    if (meta_.find(key) != meta_.end()) return;
     ++logicalClock_;
     meta_[key] = Meta{1, logicalClock_};
 }
 
 void LFUPolicy::onAccess(const std::string& key) {
     auto it = meta_.find(key);
-    if (it == meta_.end()) return;
+    if (it == meta_.end()) {
+        onInsert(key);
+        return;
+    }
     ++logicalClock_;
     ++it->second.frequency;
     it->second.lastAccess = logicalClock_;
@@ -39,12 +45,11 @@ std::string LFUPolicy::selectVictim() const {
 }
 
 void LFUPolicy::syncKeys(const std::vector<std::string>& keys) {
-    std::unordered_set<std::string> wanted(keys.begin(), keys.end());
+    const std::unordered_set<std::string> wanted(keys.begin(), keys.end());
 
     for (const auto& key : keys) {
         if (meta_.find(key) == meta_.end()) onInsert(key);
     }
-
     for (auto it = meta_.begin(); it != meta_.end();) {
         if (wanted.find(it->first) == wanted.end()) it = meta_.erase(it);
         else ++it;
