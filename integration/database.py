@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SQLite Database persistence and DBMS integration for Adaptive_Cache_Redis.
+"""SQLite Database persistence and DBMS integration for Adaptive_Cache_Redis. 
 
 Re-exports DatabaseManager, AdaptiveCacheDB, and helper functions from database_manager.py
 for seamless module compatibility.
