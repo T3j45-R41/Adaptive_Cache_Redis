@@ -11,6 +11,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 #Added latency calculation adjustments
+try:
+    import sys
+    _repo_root = Path(__file__).resolve().parent.parent
+    if str(_repo_root) not in sys.path:
+        sys.path.insert(0, str(_repo_root))
+    from database_manager import get_db_manager
+    HAS_DB_MANAGER = True
+except Exception:
+    HAS_DB_MANAGER = False
+
 
 def percentile(values: list[float], p: float) -> float:
     if not values: return 0.0
@@ -97,6 +107,21 @@ def parse_timestamp(value: str) -> float | None:
 
 
 def make_workload(args: argparse.Namespace) -> tuple[list[dict[str, str]], float]:
+    if getattr(args, "stock_db", False) and HAS_DB_MANAGER:
+        try:
+            db = get_db_manager(getattr(args, "db", None))
+            db_records = db.sp_query_latest_quotes()
+            if db_records:
+                records = [{"ticker": r["ticker"], "source_timestamp": r["timestamp"], "price": str(r["close"])} for r in db_records]
+                latest = max((parse_timestamp(r["source_timestamp"]) for r in records if parse_timestamp(r["source_timestamp"]) is not None), default=None)
+                for r in records:
+                    ts = parse_timestamp(r["source_timestamp"])
+                    r["staleness_seconds"] = max(0.0, latest - ts) if latest is not None and ts is not None else None
+                print(f"Loaded {len(records)} stock records from SQLite View (latest_stock_quotes)")
+                return records, latest or 0.0
+        except Exception as e:
+            print(f"Notice: Could not load from SQLite stocks view ({e}), falling back...")
+
     if args.stock_csv:
         records=load_stock_csv(args.stock_csv)
         latest=max((parse_timestamp(r["source_timestamp"]) for r in records if parse_timestamp(r["source_timestamp"]) is not None), default=None)
@@ -169,6 +194,9 @@ def main() -> int:
     p.add_argument("--operations",type=int,default=100); p.add_argument("--concurrency",type=int,nargs="+",default=[1])
     p.add_argument("--timeout",type=float,default=2.0); p.add_argument("--output-dir",default="results")
     p.add_argument("--stock-csv",help="Optional yfinance-style CSV with Date/Datetime, Close, and optional Ticker columns")
+    p.add_argument("--db",help="Optional SQLite database path to store benchmark and eviction logs (default: adaptive_cache.db)")
+    p.add_argument("--stock-db",action="store_true",help="Load stock workload from SQLite stocks table/view instead of CSV")
+    p.add_argument("--no-db",action="store_true",help="Disable SQLite logging even if database is available")
     p.add_argument("--keyspace",type=int,default=100,help="Synthetic stock-key count if --stock-csv is omitted")
     p.add_argument("--hit-target-percent",type=float,default=80.0,help="Percent of requests to target known stock keys (not a guaranteed hit rate)")
     p.add_argument("--label",default="custom-server",help="Label used to compare separate runs/policies")
@@ -246,6 +274,19 @@ def main() -> int:
     
     with open(json_path,"w",encoding="utf-8") as f: json.dump({"config":config,"server_stats":final_info,"summaries":summaries},f,indent=2)
     print("Saved raw CSV:",csv_path); print("Saved summary JSON:",json_path)
+
+    # Strictly additive SQLite logging alongside CSV (Phase 3 DBMS Integration)
+    if HAS_DB_MANAGER and not a.no_db:
+        try:
+            db_target = a.db or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "adaptive_cache.db")
+            db_mgr = get_db_manager(db_target)
+            for s in summaries:
+                matching_rows = [r for r in all_rows if r.get("concurrency") == s.get("concurrency")]
+                run_id = db_mgr.sp_log_benchmark_run(s, matching_rows, config)
+                print(f"Persisted to SQLite -> run_id: {run_id} ({s.get('server_policy', s.get('run_label'))}, c={s.get('concurrency')}) in {db_mgr.db_path.name}")
+        except Exception as dberr:
+            print(f"Notice: SQLite benchmark logging skipped: {dberr}")
+
     if final_info:
         print(f"Server Stats -> Policy: {final_info.get('active_policy')}, Evictions: {final_info.get('total_evictions')}, Hits: {final_info.get('total_hits')}, Misses: {final_info.get('total_misses')}")
     print("Next: run python analyze_results.py --input",csv_path)
