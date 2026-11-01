@@ -47,5 +47,19 @@ def generate_stock_data(filepath="stock_market_data.csv", num_rows=1000):
         
     print(f"Generated {num_rows} stock records in {filepath}")
 
+    # Additive SQLite persistence (Phase 3 DBMS integration)
+    try:
+        import sys
+        from pathlib import Path
+        _root = Path(__file__).resolve().parent.parent
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from database_manager import get_db_manager
+        db = get_db_manager()
+        inserted = db.sp_batch_insert_stocks(rows)
+        print(f"Persisted {inserted} records into SQLite database ({db.db_path.name})")
+    except Exception as dberr:
+        pass
+
 if __name__ == "__main__":
     generate_stock_data()
