@@ -42,12 +42,12 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
   return (
     <div className="space-y-6">
       {/* Configuration Form Card */}
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
+      <div className="p-6 rounded-2xl bg-white border border-ctp-surface0 shadow-xs">
         <div className="flex items-center gap-2 mb-4">
-          <Cpu className="w-5 h-5 text-sky-400" />
-          <h2 className="text-base font-bold text-white tracking-tight">Experiment Control Panel</h2>
+          <Cpu className="w-5 h-5 text-ctp-blue" />
+          <h2 className="text-base font-bold text-ctp-text tracking-tight">Experiment Control Panel</h2>
         </div>
-        <p className="text-xs text-slate-400 mb-6">
+        <p className="text-xs text-ctp-subtext0 mb-6">
           Executes identical synthetic/historical workload traces across all 5 eviction policies (LRU, LFU, FIFO, RANDOM, ADAPTIVE)
           under identical capacity limits to ensure statistically rigorous comparison.
         </p>
@@ -55,23 +55,23 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
         <form onSubmit={handleRun} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {/* Experiment Name */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Experiment Title</label>
+            <label className="block text-xs font-medium text-ctp-subtext1 mb-1.5">Experiment Title</label>
             <input
               type="text"
               value={expName}
               onChange={(e) => setExpName(e.target.value)}
               required
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              className="w-full bg-ctp-mantle border border-ctp-surface1 rounded-lg px-3 py-2 text-xs font-mono text-ctp-text focus:ring-1 focus:ring-ctp-blue focus:border-ctp-blue focus:outline-none transition"
             />
           </div>
 
           {/* Workload Pattern */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Workload Pattern</label>
+            <label className="block text-xs font-medium text-ctp-subtext1 mb-1.5">Workload Pattern</label>
             <select
               value={workload}
               onChange={(e) => setWorkload(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              className="w-full bg-ctp-mantle border border-ctp-surface1 rounded-lg px-3 py-2 text-xs font-mono text-ctp-text focus:ring-1 focus:ring-ctp-blue focus:border-ctp-blue focus:outline-none transition"
             >
               <option value="zipfian">Zipfian Distribution (Power-law α = 1.2)</option>
               <option value="normal">Normal / Uniform Trading</option>
@@ -85,11 +85,11 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
 
           {/* Cache Capacity */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Cache Capacity (Items)</label>
+            <label className="block text-xs font-medium text-ctp-subtext1 mb-1.5">Cache Capacity (Items)</label>
             <select
               value={capacity}
               onChange={(e) => setCapacity(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              className="w-full bg-ctp-mantle border border-ctp-surface1 rounded-lg px-3 py-2 text-xs font-mono text-ctp-text focus:ring-1 focus:ring-ctp-blue focus:border-ctp-blue focus:outline-none transition"
             >
               <option value={3}>3 (Severe Capacity Constraint)</option>
               <option value={5}>5 (Constrained Memory)</option>
@@ -102,7 +102,7 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
 
           {/* Request Count */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Total Requests</label>
+            <label className="block text-xs font-medium text-ctp-subtext1 mb-1.5">Total Requests</label>
             <input
               type="number"
               min={100}
@@ -110,18 +110,18 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
               step={100}
               value={requests}
               onChange={(e) => setRequests(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              className="w-full bg-ctp-mantle border border-ctp-surface1 rounded-lg px-3 py-2 text-xs font-mono text-ctp-text focus:ring-1 focus:ring-ctp-blue focus:border-ctp-blue focus:outline-none transition"
             />
           </div>
 
           {/* Random Seed */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Deterministic Seed</label>
+            <label className="block text-xs font-medium text-ctp-subtext1 mb-1.5">Deterministic Seed</label>
             <input
               type="number"
               value={seed}
               onChange={(e) => setSeed(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              className="w-full bg-ctp-mantle border border-ctp-surface1 rounded-lg px-3 py-2 text-xs font-mono text-ctp-text focus:ring-1 focus:ring-ctp-blue focus:border-ctp-blue focus:outline-none transition"
             />
           </div>
 
@@ -130,7 +130,7 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
             <button
               type="submit"
               disabled={isRunning}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-xs font-semibold shadow-md shadow-sky-600/20 transition duration-200"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-ctp-blue hover:bg-ctp-sapphire disabled:bg-ctp-surface1 disabled:text-ctp-subtext0 text-white text-xs font-semibold shadow-md shadow-ctp-blue/20 transition duration-200"
             >
               {isRunning ? (
                 <>
@@ -148,7 +148,7 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
         </form>
 
         {error && (
-          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-2 text-rose-400 text-xs">
+          <div className="mt-4 p-3 rounded-xl bg-ctp-red/10 border border-ctp-red/20 flex items-center gap-2 text-ctp-red text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -157,10 +157,10 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
 
       {/* Live Benchmark Execution Results */}
       {lastResult && (
-        <div className="p-6 rounded-2xl bg-slate-900/60 border border-emerald-500/30">
+        <div className="p-6 rounded-2xl bg-white border border-ctp-green/40 shadow-xs">
           <div className="flex items-center gap-2 mb-4">
-            <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white tracking-tight">
+            <CheckCircle className="w-5 h-5 text-ctp-green" />
+            <h3 className="text-sm font-bold text-ctp-text tracking-tight">
               Experiment Complete: #{lastResult.experiment_id} - {lastResult.experiment_name}
             </h3>
           </div>
@@ -168,7 +168,7 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
+                <tr className="border-b border-ctp-surface0 text-ctp-subtext0">
                   <th className="pb-2 font-medium">Policy</th>
                   <th className="pb-2 font-medium">Hit Rate (%)</th>
                   <th className="pb-2 font-medium">Avg Latency</th>
@@ -177,15 +177,15 @@ export const BenchmarkControlSection: React.FC<BenchmarkControlProps> = ({ onExp
                   <th className="pb-2 font-medium">Staleness</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-ctp-surface0/60">
                 {lastResult.results.map((r: any) => (
-                  <tr key={r.policy} className="hover:bg-slate-800/20">
-                    <td className="py-2.5 font-bold text-white">{r.policy}</td>
-                    <td className="py-2.5 text-emerald-400 font-semibold">{r.hit_rate}%</td>
-                    <td className="py-2.5 text-slate-300">{r.avg_latency} ms</td>
-                    <td className="py-2.5 text-purple-400">{r.throughput} rps</td>
-                    <td className="py-2.5 text-rose-400">{r.total_evictions}</td>
-                    <td className="py-2.5 text-amber-400">{r.staleness_sec} s</td>
+                  <tr key={r.policy} className="hover:bg-ctp-mantle/70 transition">
+                    <td className="py-2.5 font-bold text-ctp-text">{r.policy}</td>
+                    <td className="py-2.5 text-ctp-green font-semibold">{r.hit_rate}%</td>
+                    <td className="py-2.5 text-ctp-subtext1">{r.avg_latency} ms</td>
+                    <td className="py-2.5 text-ctp-mauve font-semibold">{r.throughput} rps</td>
+                    <td className="py-2.5 text-ctp-red font-semibold">{r.total_evictions}</td>
+                    <td className="py-2.5 text-ctp-peach font-semibold">{r.staleness_sec} s</td>
                   </tr>
                 ))}
               </tbody>

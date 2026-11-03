@@ -49,7 +49,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-ctp-base text-ctp-text flex flex-col font-sans selection:bg-ctp-lavender/30">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -87,7 +87,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500 font-mono">
+      <footer className="border-t border-ctp-surface0 bg-ctp-mantle py-4 text-center text-xs text-ctp-subtext0 font-mono">
         Adaptive Cache Eviction & MySQL DBMS • University PBL Project Demonstration
       </footer>
     </div>
