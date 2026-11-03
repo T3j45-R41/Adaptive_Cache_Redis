@@ -4,22 +4,26 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-100 font-sans;
+    @apply bg-ctp-base text-ctp-text font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-ctp-lavender/30 text-ctp-text;
   }
 }
 
-/* Custom scrollbars */
+/* Catppuccin Latte Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #e6e9ef;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #ccd0da;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #bcc0cc;
 }
