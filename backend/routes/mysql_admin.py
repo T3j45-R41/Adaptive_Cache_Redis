@@ -18,6 +18,7 @@ def get_query_performance():
         ("vw_stock_history", "SELECT * FROM vw_stock_history"),
         ("vw_eviction_statistics", "SELECT * FROM vw_eviction_statistics"),
         ("Indexed Symbol Lookup", "SELECT * FROM stock_data WHERE symbol = 'AAPL' LIMIT 20"),
+        ("Partition-Pruned Time-Series Scan", "SELECT * FROM stock_data WHERE market_timestamp >= '2026-10-01 00:00:00' AND market_timestamp < '2027-01-01 00:00:00' LIMIT 20"),
         ("Audit Trail Retrieval", "SELECT * FROM experiment_audit_log ORDER BY changed_at DESC LIMIT 20")
     ]
 
