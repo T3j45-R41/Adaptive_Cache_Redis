@@ -78,4 +78,18 @@ export interface QueryPerformanceDemo {
   execution_time_ms: number;
   row_count: number;
   status: string;
+  columns?: string[];
+  rows?: Record<string, any>[];
+  engine?: string;
+}
+
+export interface QueryExecutionResult {
+  query_name?: string;
+  sql: string;
+  execution_time_ms: number;
+  row_count: number;
+  status?: string;
+  columns: string[];
+  rows: Record<string, any>[];
+  engine?: string;
 }
