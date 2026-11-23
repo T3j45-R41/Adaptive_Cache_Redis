@@ -72,6 +72,7 @@ public:
     virtual EvictionStats getStats() const = 0;
     virtual void recordHit() = 0;
     virtual void recordMiss() = 0;
+    virtual void onMiss(const std::string& key) { (void)key; }
     virtual void reset() = 0;
 };
 

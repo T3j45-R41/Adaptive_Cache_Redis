@@ -25,6 +25,7 @@ public:
     EvictionStats getStats() const override;
     void recordHit() override;
     void recordMiss() override;
+    void onMiss(const std::string& key) override;
     void reset() override;
 
     // Regret update on miss when a key is found in shadow histories
@@ -36,6 +37,7 @@ public:
     std::string getCurrentActiveExpert() const;
 
 private:
+    void applyShadowFeedbackLocked(const std::string& key);
     void addToShadow(std::deque<std::string>& shadowQueue,
                      std::unordered_set<std::string>& shadowSet,
                      const std::string& key);
