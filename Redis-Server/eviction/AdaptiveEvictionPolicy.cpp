@@ -18,22 +18,23 @@ void AdaptiveEvictionPolicy::onAccess(const std::string& key) {
     expertLFU.onAccess(key);
 }
 
-void AdaptiveEvictionPolicy::onInsert(const std::string& key) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    // When a key is inserted, check if it was in any shadow history (miss with feedback)
+void AdaptiveEvictionPolicy::applyShadowFeedbackLocked(const std::string& key) {
     double r1 = 0.0;
     double r2 = 0.0;
     bool feedback = false;
 
     if (shadow1Set.count(key) > 0) {
-        // Was recently evicted by LRU/Expert 1, or Expert 1's shadow history
-        // If it was in shadow1, Expert 1 receives credit, Expert 2 gets regret
-        r2 = 1.0;
+        // Key was evicted by Expert 1 (LRU / Recency).
+        // Since it was requested again, Expert 1 made the sub-optimal eviction decision.
+        // In standard LeCaR/ARC learning, Expert 1 receives regret (r1 = 1.0) so w1 decreases and w2 increases.
+        r1 = 1.0;
         feedback = true;
         shadow1Set.erase(key);
     } else if (shadow2Set.count(key) > 0) {
-        // Was in shadow2, Expert 2 receives credit, Expert 1 gets regret
-        r1 = 1.0;
+        // Key was evicted by Expert 2 (LFU / Frequency).
+        // Since it was requested again, Expert 2 made the sub-optimal eviction decision.
+        // In standard LeCaR/ARC learning, Expert 2 receives regret (r2 = 1.0) so w2 decreases and w1 increases.
+        r2 = 1.0;
         feedback = true;
         shadow2Set.erase(key);
     }
@@ -55,7 +56,11 @@ void AdaptiveEvictionPolicy::onInsert(const std::string& key) {
         w1 /= sum;
         w2 /= sum;
     }
+}
 
+void AdaptiveEvictionPolicy::onInsert(const std::string& key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    applyShadowFeedbackLocked(key);
     expertLRU.onInsert(key);
     expertLFU.onInsert(key);
 }
@@ -140,36 +145,13 @@ void AdaptiveEvictionPolicy::recordMiss() {
     misses_++;
 }
 
+void AdaptiveEvictionPolicy::onMiss(const std::string& key) {
+    onCacheMissFeedback(key);
+}
+
 void AdaptiveEvictionPolicy::onCacheMissFeedback(const std::string& missedKey) {
     std::lock_guard<std::mutex> lock(mutex_);
-    double r1 = 0.0;
-    double r2 = 0.0;
-    bool feedback = false;
-
-    if (shadow1Set.count(missedKey) > 0) {
-        r2 = 1.0;
-        feedback = true;
-        shadow1Set.erase(missedKey);
-    } else if (shadow2Set.count(missedKey) > 0) {
-        r1 = 1.0;
-        feedback = true;
-        shadow2Set.erase(missedKey);
-    }
-
-    if (feedback) {
-        cumulativeRegret1 += r1;
-        cumulativeRegret2 += r2;
-
-        w1 = w1 * std::exp(-learningRate * r1);
-        w2 = w2 * std::exp(-learningRate * r2);
-
-        if (w1 < 0.001) w1 = 0.001;
-        if (w2 < 0.001) w2 = 0.001;
-
-        double sum = w1 + w2;
-        w1 /= sum;
-        w2 /= sum;
-    }
+    applyShadowFeedbackLocked(missedKey);
 }
 
 double AdaptiveEvictionPolicy::getExpert1Weight() const {

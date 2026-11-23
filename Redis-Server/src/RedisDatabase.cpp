@@ -195,8 +195,43 @@ void RedisDatabase::set(const std::string& key, const std::string& value) {
 }
 
 bool RedisDatabase::get(const std::string& key, std::string& value) {
-    std::unique_lock<std::shared_mutex> lock(db_mutex);
-    purgeExpired();
+    // 1. Fast read path under shared_lock (enables true multi-client concurrent reads)
+    {
+        std::shared_lock<std::shared_mutex> read_lock(db_mutex);
+        auto expIt = expiry_map.find(key);
+        if (expIt != expiry_map.end() && std::chrono::steady_clock::now() > expIt->second) {
+            // Key has expired, must acquire exclusive write lock to purge - fall through to slow path
+        } else {
+            auto it = kv_store.find(key);
+            if (it != kv_store.end()) {
+                value = it->second;
+                if (eviction_policy) {
+                    eviction_policy->recordHit();
+                    eviction_policy->onAccess(key);
+                }
+                return true;
+            }
+            if (eviction_policy) {
+                eviction_policy->recordMiss();
+                eviction_policy->onMiss(key);
+            }
+            return false;
+        }
+    }
+
+    // 2. Slow write path: only reached when the requested key has expired
+    std::unique_lock<std::shared_mutex> write_lock(db_mutex);
+    auto expIt = expiry_map.find(key);
+    if (expIt != expiry_map.end() && std::chrono::steady_clock::now() > expIt->second) {
+        deleteKeyInternalLocked(key);
+        if (eviction_policy) {
+            eviction_policy->recordMiss();
+            eviction_policy->onMiss(key);
+        }
+        return false;
+    }
+
+    // Re-verify after acquiring write lock
     auto it = kv_store.find(key);
     if (it != kv_store.end()) {
         value = it->second;
@@ -208,6 +243,7 @@ bool RedisDatabase::get(const std::string& key, std::string& value) {
     }
     if (eviction_policy) {
         eviction_policy->recordMiss();
+        eviction_policy->onMiss(key);
     }
     return false;
 }
