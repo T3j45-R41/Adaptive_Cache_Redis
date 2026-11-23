@@ -166,4 +166,43 @@ proc_body: BEGIN
     SET p_status = 'TRANSACTION_COMMITTED_SUCCESSFULLY';
 END proc_body$$
 
+-- -----------------------------------------------------------------------------
+-- Procedure 5: sp_get_stock_partition_stats
+-- Inspects partition storage, row counts, and data length from information_schema
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS sp_get_stock_partition_stats$$
+CREATE PROCEDURE sp_get_stock_partition_stats()
+BEGIN
+    SELECT 
+        partition_name,
+        partition_ordinal_position,
+        table_rows,
+        ROUND(data_length / 1024, 2) AS data_length_kb,
+        ROUND(index_length / 1024, 2) AS index_length_kb,
+        partition_description
+    FROM information_schema.partitions
+    WHERE table_schema = DATABASE()
+      AND table_name = 'stock_data'
+    ORDER BY partition_ordinal_position;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- Procedure 6: sp_drop_old_stock_partition
+-- Demonstrates enterprise partition pruning and instant lifecycle data deletion
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS sp_drop_old_stock_partition$$
+CREATE PROCEDURE sp_drop_old_stock_partition(IN p_part_name VARCHAR(64))
+BEGIN
+    -- Prevent SQL injection by validating partition name prefix
+    IF p_part_name NOT LIKE 'p_%' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid partition name: must start with p_';
+    END IF;
+
+    SET @sql = CONCAT('ALTER TABLE stock_data DROP PARTITION ', p_part_name);
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+    SELECT CONCAT('Partition ', p_part_name, ' dropped successfully.') AS status;
+END$$
+
 DELIMITER ;

@@ -26,9 +26,10 @@ DROP TABLE IF EXISTS experiment_audit_log;
 -- -----------------------------------------------------------------------------
 -- 1. Table: stock_data
 -- Normalized historical stock quotes ingested via yfinance
+-- Partitioned by RANGE (TO_DAYS(market_timestamp)) for enterprise time-series pruning
 -- -----------------------------------------------------------------------------
 CREATE TABLE stock_data (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT,
     symbol VARCHAR(16) NOT NULL,
     price DECIMAL(12, 4) NOT NULL,
     open_price DECIMAL(12, 4) NOT NULL,
@@ -39,8 +40,25 @@ CREATE TABLE stock_data (
     inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_stock_price CHECK (price >= 0),
     CONSTRAINT chk_stock_high_low CHECK (high_price >= low_price),
-    CONSTRAINT chk_stock_volume CHECK (volume >= 0)
-) ENGINE=InnoDB;
+    CONSTRAINT chk_stock_volume CHECK (volume >= 0),
+    PRIMARY KEY (id, market_timestamp)
+) ENGINE=InnoDB
+PARTITION BY RANGE (TO_DAYS(market_timestamp)) (
+    PARTITION p_historical VALUES LESS THAN (TO_DAYS('2025-01-01')),
+    PARTITION p_2025_q1     VALUES LESS THAN (TO_DAYS('2025-04-01')),
+    PARTITION p_2025_q2     VALUES LESS THAN (TO_DAYS('2025-07-01')),
+    PARTITION p_2025_q3     VALUES LESS THAN (TO_DAYS('2025-10-01')),
+    PARTITION p_2025_q4     VALUES LESS THAN (TO_DAYS('2026-01-01')),
+    PARTITION p_2026_q1     VALUES LESS THAN (TO_DAYS('2026-04-01')),
+    PARTITION p_2026_q2     VALUES LESS THAN (TO_DAYS('2026-07-01')),
+    PARTITION p_2026_q3     VALUES LESS THAN (TO_DAYS('2026-10-01')),
+    PARTITION p_2026_q4     VALUES LESS THAN (TO_DAYS('2027-01-01')),
+    PARTITION p_2027_q1     VALUES LESS THAN (TO_DAYS('2027-04-01')),
+    PARTITION p_2027_q2     VALUES LESS THAN (TO_DAYS('2027-07-01')),
+    PARTITION p_2027_q3     VALUES LESS THAN (TO_DAYS('2027-10-01')),
+    PARTITION p_2027_q4     VALUES LESS THAN (TO_DAYS('2028-01-01')),
+    PARTITION p_future      VALUES LESS THAN MAXVALUE
+);
 
 -- -----------------------------------------------------------------------------
 -- 2. Table: eviction_policies

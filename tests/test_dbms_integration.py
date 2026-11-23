@@ -16,6 +16,17 @@ def test_stock_data_query():
     assert len(rows) == 1
     assert rows[0]["c"] > 0
 
+def test_partitioned_stock_queries():
+    # Test time-range query that benefits from partition pruning
+    rows = db_manager.execute_query(
+        "SELECT symbol, price, market_timestamp FROM stock_data "
+        "WHERE market_timestamp >= '2026-10-01 00:00:00' AND market_timestamp < '2027-01-01 00:00:00' "
+        "LIMIT 10"
+    )
+    assert isinstance(rows, list)
+    assert len(rows) > 0
+    assert "market_timestamp" in rows[0]
+
 def test_eviction_policies_seeded():
     rows = db_manager.execute_query("SELECT policy_name FROM eviction_policies")
     names = [r["policy_name"] for r in rows]

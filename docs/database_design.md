@@ -140,10 +140,15 @@ erDiagram
 ## 2. Table Specifications & Constraints
 
 ### A. `stock_data`
-- **Primary Key**: `id BIGINT AUTO_INCREMENT`
-- **Composite Index**: `idx_stock_symbol_time (symbol, market_timestamp)`
+- **Primary Key**: `PRIMARY KEY (id, market_timestamp)` — composite key required by MySQL InnoDB for partition expressions.
+- **Partitioning Scheme**: `PARTITION BY RANGE (TO_DAYS(market_timestamp))` across historical, quarterly (`p_2025_q1` .. `p_2027_q4`), and future bounds.
+- **Composite Index**: `idx_stock_symbol_time (symbol, market_timestamp)` (partition-local B-tree index).
 - **Check Constraints**: `CHECK (price >= 0)`, `CHECK (high_price >= low_price)`
 - **Purpose**: High-throughput storage of minute-level ticker quotes ingested via `yfinance`.
+- **Partition Pruning Benefits**:
+  - The query optimizer skips non-relevant partitions when filtering by `market_timestamp`.
+  - Enables instant data retention management and historical pruning via `ALTER TABLE stock_data DROP PARTITION <part_name>` ($O(1)$ file system unlink instead of high-overhead undo/redo-logged `DELETE FROM ...`).
+  - Reduces B-tree index depth per partition, speeding up index scans and updates.
 
 ### B. `eviction_policies`
 - **Primary Key**: `policy_id INT AUTO_INCREMENT`

@@ -59,7 +59,7 @@ python python/database/init_db.py
 
 ---
 
-## 4. Verification
+## 4. Verification & Partition Inspection
 
 Run the verification queries:
 
@@ -68,4 +68,25 @@ USE adaptive_cache_db;
 SHOW TABLES;
 SELECT * FROM eviction_policies;
 SELECT * FROM vw_policy_performance;
+
+-- Inspect Time-Series Partitions for stock_data
+SELECT 
+    partition_name,
+    partition_ordinal_position,
+    table_rows,
+    ROUND(data_length / 1024, 2) AS data_kb,
+    partition_description
+FROM information_schema.partitions
+WHERE table_schema = 'adaptive_cache_db' 
+  AND table_name = 'stock_data'
+ORDER BY partition_ordinal_position;
+
+-- Verify Partition Pruning via EXPLAIN
+EXPLAIN SELECT * FROM stock_data 
+WHERE market_timestamp >= '2026-10-01 00:00:00' 
+  AND market_timestamp < '2027-01-01 00:00:00';
+
+-- Demonstrate Instant Historical Data Pruning via DDL
+-- ALTER TABLE stock_data DROP PARTITION p_historical;
+-- CALL sp_drop_old_stock_partition('p_historical');
 ```

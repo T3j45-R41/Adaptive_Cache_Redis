@@ -169,6 +169,8 @@ erDiagram
    - `sp_record_benchmark_transaction`: Demonstrates ACID transactions with `COMMIT` and `ROLLBACK`.
 6. **Triggers**:
    - `trg_experiment_status_audit`: Automatically populates `experiment_audit_log` on status change.
+7. **Time-Series Table Partitioning**:
+   - `stock_data` partitioned by `RANGE (TO_DAYS(market_timestamp))` with composite primary key `(id, market_timestamp)` across quarterly intervals. Demonstrates query optimizer partition pruning, reduced B-tree index depths, and instant historical data pruning via `ALTER TABLE stock_data DROP PARTITION` / `sp_drop_old_stock_partition`.
 
 ---
 

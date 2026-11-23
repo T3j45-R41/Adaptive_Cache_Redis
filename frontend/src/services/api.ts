@@ -44,6 +44,25 @@ export const api = {
     return res.json();
   },
 
+  async executeCustomQuery(query: string): Promise<QueryPerformanceDemo> {
+    const res = await fetch(`${API_BASE}/mysql/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to execute query');
+    }
+    return res.json();
+  },
+
+  async getTableData(tableName: string, limit: number = 25): Promise<QueryPerformanceDemo> {
+    const res = await fetch(`${API_BASE}/mysql/table/${tableName}?limit=${limit}`);
+    if (!res.ok) throw new Error(`Failed to fetch records for table ${tableName}`);
+    return res.json();
+  },
+
   async setPolicy(policy: string, capacity?: number) {
     const res = await fetch(`${API_BASE}/cache/policy`, {
       method: 'POST',

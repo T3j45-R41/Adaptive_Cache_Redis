@@ -70,3 +70,26 @@ COMMIT;
 
 -- 9. Check Audit Log populated by Triggers
 SELECT * FROM experiment_audit_log ORDER BY changed_at DESC LIMIT 10;
+
+-- 10. Time-Series Partition Pruning Demonstration
+-- EXPLAIN shows MySQL query optimizer pruning unreferenced historical partitions
+EXPLAIN SELECT * FROM stock_data 
+WHERE market_timestamp >= '2026-10-01 00:00:00' 
+  AND market_timestamp < '2027-01-01 00:00:00';
+
+-- 11. Information Schema Partition Catalog Inspection
+SELECT 
+    partition_name,
+    partition_ordinal_position,
+    table_rows,
+    ROUND(data_length / 1024, 2) AS data_length_kb,
+    partition_description
+FROM information_schema.partitions
+WHERE table_schema = 'adaptive_cache_db' 
+  AND table_name = 'stock_data'
+ORDER BY partition_ordinal_position;
+
+-- 12. Instant Historical Partition Pruning Lifecycle Execution
+-- CALL sp_drop_old_stock_partition('p_historical');
+-- Or directly via DDL:
+-- ALTER TABLE stock_data DROP PARTITION p_historical;
